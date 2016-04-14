@@ -252,6 +252,9 @@ namespace videocore { namespace simpleApi {
             break;
     }
 }
+- (void) setPaused:(BOOL)paused {
+    m_videoMixer->mixPaused(paused);
+}
 - (void) setCameraState:(VCCameraState)cameraState
 {
     if(_cameraState != cameraState) {
@@ -259,21 +262,25 @@ namespace videocore { namespace simpleApi {
         if(m_cameraSource) {
             m_cameraSource->toggleCamera();
         }
+        _previewView.mirrored = (_cameraState == VCCameraStateFront);
     }
 }
 - (void) setRtmpSessionState:(VCSessionState)rtmpSessionState
 {
-    _rtmpSessionState = rtmpSessionState;
-    if (NSOperationQueue.currentQueue != NSOperationQueue.mainQueue) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            // trigger in main thread, avoid autolayout engine exception
-            if(self.delegate) {
+    if (_rtmpSessionState != rtmpSessionState) {
+        _rtmpSessionState = rtmpSessionState;
+        if (NSOperationQueue.currentQueue != NSOperationQueue.mainQueue) {
+            __block VCSimpleSession* bSelf = self;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                // trigger in main thread, avoid autolayout engine exception
+                if(bSelf.delegate) {
+                    [bSelf.delegate connectionStatusChanged:rtmpSessionState];
+                }
+            });
+        } else {
+            if (self.delegate) {
                 [self.delegate connectionStatusChanged:rtmpSessionState];
             }
-        });
-    } else {
-        if (self.delegate) {
-            [self.delegate connectionStatusChanged:rtmpSessionState];
         }
     }
 }
@@ -485,7 +492,7 @@ namespace videocore { namespace simpleApi {
     _previewView = [[VCPreviewView alloc] init];
     self.videoZoomFactor = 1.f;
 
-    _cameraState = cameraState;
+    self.cameraState = cameraState;
     _exposurePOI = _focusPOI = CGPointMake(0.5f, 0.5f);
     _continuousExposure = _continuousAutofocus = YES;
 
@@ -557,11 +564,12 @@ namespace videocore { namespace simpleApi {
 
                                                                   break;
                                                               case kClientStateError:
-                                                                  self.rtmpSessionState = VCSessionStateError;
-                                                                  [self endRtmpSession];
+                                                                  if (self.rtmpSessionState < VCSessionStateEnded) {
+                                                                      self.rtmpSessionState = VCSessionStateError;
+                                                                      [self endRtmpSession];
+                                                                  }
                                                                   break;
                                                               case kClientStateNotConnected:
-                                                                  self.rtmpSessionState = VCSessionStateEnded;
                                                                   [self endRtmpSession];
                                                                   break;
                                                               default:
@@ -650,7 +658,9 @@ namespace videocore { namespace simpleApi {
 
     m_h264Packetizer.reset();
     m_aacPacketizer.reset();
-    m_videoSplit->removeOutput(m_h264Encoder);
+    if (m_videoSplit != nullptr) {
+        m_videoSplit->removeOutput(m_h264Encoder);
+    }
     m_h264Encoder.reset();
     m_aacEncoder.reset();
 

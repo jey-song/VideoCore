@@ -340,9 +340,11 @@ namespace videocore { namespace iOS {
         AVCaptureSession* session = (AVCaptureSession*)m_captureSession;
         // [session beginConfiguration];
         
+        AVCaptureDevice *device = (AVCaptureDevice*)m_captureDevice;
         for (AVCaptureVideoDataOutput* output in session.outputs) {
             for (AVCaptureConnection * av in output.connections) {
-                
+                //---front capture mirror----
+                //av.videoMirrored = ([device position] == AVCaptureDevicePositionFront);
                 switch (orientation) {
                         // UIInterfaceOrientationPortraitUpsideDown, UIDeviceOrientationPortraitUpsideDown
                     case UIInterfaceOrientationPortraitUpsideDown:

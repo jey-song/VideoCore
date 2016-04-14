@@ -326,4 +326,9 @@
     [EAGLContext setCurrentContext:current];
 }
 
+- (void) setMirrored:(BOOL)mirrored {
+    _mirrored = mirrored;
+    self.transform = CGAffineTransformMakeScale(_mirrored ? -1.0 : 1.0, 1.0);
+}
+
 @end
